@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       fork_url:
-        description: 'Intern fork URL (e.g. https://github.com/ibm-intern/novacart-dashboard-starter)'
+        description: 'Intern fork URL (e.g. https://github.com/intern-name/novacart-dashboard-starter or intern-name/novacart-dashboard-starter)'
         required: true
         type: string
 
@@ -28,12 +28,19 @@ jobs:
       APP_WH: NOVACART_APP_WH
 
     steps:
+      - name: Parse fork URL
+        id: parse
+        run: |
+          FORK_URL="${{ github.event.inputs.fork_url }}"
+          REPO=$(echo "$FORK_URL" | sed 's|https://github.com/||' | sed 's|http://github.com/||' | sed 's|/$||')
+          echo "repo=$REPO" >> $GITHUB_OUTPUT
+          echo "Deploying from: $REPO"
+
       - name: Checkout intern fork
         uses: actions/checkout@v4
         with:
-          repository: ${{ github.event.inputs.fork_url != '' && github.event.inputs.fork_url || github.repository }}
+          repository: ${{ steps.parse.outputs.repo }}
           ref: main
-          token: ${{ github.token }}
 
       - name: Install Snowflake CLI
         run: pip install snowflake-cli-labs --quiet
@@ -98,10 +105,8 @@ jobs:
           USE ROLE NOVACART_ADMIN_ROLE;
           USE DATABASE $DB;
           USE SCHEMA $SCHEMA;
-
           DROP SERVICE IF EXISTS backend_service_group${GROUP};
           DROP SERVICE IF EXISTS frontend_service_group${GROUP};
-
           CREATE SERVICE backend_service_group${GROUP}
             IN COMPUTE POOL $BACKEND_POOL
             FROM SPECIFICATION \$\$
@@ -118,7 +123,6 @@ jobs:
                 public: false
             \$\$
             MIN_INSTANCES=1 MAX_INSTANCES=1;
-
           CREATE SERVICE frontend_service_group${GROUP}
             IN COMPUTE POOL $FRONTEND_POOL
             FROM SPECIFICATION \$\$
@@ -140,7 +144,6 @@ jobs:
               public: true
             \$\$
             MIN_INSTANCES=1 MAX_INSTANCES=1;
-
           GRANT USAGE ON SERVICE backend_service_group${GROUP}  TO ROLE $EXT_ROLE;
           GRANT USAGE ON SERVICE frontend_service_group${GROUP} TO ROLE $EXT_ROLE;
           GRANT SERVICE ROLE backend_service_group${GROUP}!ALL_ENDPOINTS_USAGE  TO ROLE $EXT_ROLE;
@@ -156,5 +159,4 @@ jobs:
           echo "## ✅ Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
           echo "**Fork:** ${{ github.event.inputs.fork_url }}" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** https://$URL" >> $GITHUB_STEP_SUMMARY
-          echo ""
           echo "Group $GROUP app URL: https://$URL"
