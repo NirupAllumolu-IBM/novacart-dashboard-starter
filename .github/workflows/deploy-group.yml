@@ -155,7 +155,7 @@ jobs:
           echo "Waiting for service to start..."
           sleep 90
           snow sql --connection spcs -q "USE DATABASE $DB; USE SCHEMA $SCHEMA; SHOW ENDPOINTS IN SERVICE frontend_service_group${GROUP};" --format json > /tmp/endpoints.json 2>/dev/null || true
-          URL=$(python3 .github/scripts/get_url.py 2>/dev/null || echo "")
+          URL=$(python3 .github/scripts/get_url.py || echo "")
           echo "## ✅ Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
           echo "**Fork:** ${{ github.event.inputs.fork_url }}" >> $GITHUB_STEP_SUMMARY
           echo "**URL:** https://$URL" >> $GITHUB_STEP_SUMMARY
