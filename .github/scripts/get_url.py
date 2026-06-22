@@ -1,29 +1,32 @@
 #!/usr/bin/env python3
-import json, sys, os
+import json, sys
 
-# Print raw content for debugging
 try:
     with open('/tmp/endpoints.json') as f:
         content = f.read()
-    print(f"Raw content: {repr(content)}", file=sys.stderr)
-    
-    if not content.strip() or content.strip() == '[]':
-        print("Empty response", file=sys.stderr)
-        sys.exit(0)
-    
-    rows = json.loads(content)
-    print(f"Rows: {rows}", file=sys.stderr)
-    
-    if not rows:
-        sys.exit(0)
-        
-    print(f"Keys: {list(rows[0].keys())}", file=sys.stderr)
-    
-    for row in rows:
-        for key, val in row.items():
-            print(f"  {key} = {repr(val)}", file=sys.stderr)
-            if val and any(x in str(key).lower() for x in ['url', 'ingress', 'host', 'endpoint']):
-                print(val)
-                sys.exit(0)
+
+    data = json.loads(content)
+
+    # Handle nested arrays (multiple SQL statements in one call)
+    # Flatten: find the array that contains endpoint data
+    def find_endpoints(obj):
+        if isinstance(obj, list):
+            for item in obj:
+                result = find_endpoints(item)
+                if result:
+                    return result
+        elif isinstance(obj, dict):
+            url = obj.get('ingress_url') or obj.get('INGRESS_URL') or ''
+            if url and 'provisioning' not in url.lower() and 'check back' not in url.lower():
+                print(f"Found URL: {url}", file=sys.stderr)
+                return url
+        return None
+
+    url = find_endpoints(data)
+    if url:
+        print(url)
+    else:
+        print("No ready URL found yet", file=sys.stderr)
+
 except Exception as e:
     print(f"Error: {e}", file=sys.stderr)
