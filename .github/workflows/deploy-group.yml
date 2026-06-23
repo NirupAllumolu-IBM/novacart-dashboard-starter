@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       fork_url:
-        description: 'Intern fork URL (e.g. https://github.com/intern-name/novacart-dashboard-starter or intern-name/novacart-dashboard-starter)'
+        description: 'Intern fork URL (e.g. https://github.com/intern-name/novacart-dashboard-starter)'
         required: true
         type: string
 
@@ -21,11 +21,14 @@ jobs:
       GROUP: ${{ github.event.inputs.group_number }}
       DB: NOVACART_DB
       SCHEMA: APP
-      BACKEND_POOL: NOVACART_BACKEND_POOL
-      FRONTEND_POOL: NOVACART_FRONTEND_POOL
       EXT_ROLE: NOVACART_EXT_ROLE
 
     steps:
+      - name: Checkout original repo (for scripts)
+        uses: actions/checkout@v4
+        with:
+          path: original
+
       - name: Parse fork URL
         id: parse
         run: |
@@ -39,6 +42,7 @@ jobs:
         with:
           repository: ${{ steps.parse.outputs.repo }}
           ref: main
+          path: fork
 
       - name: Install Snowflake CLI
         run: pip install snowflake-cli-labs --quiet
@@ -71,30 +75,24 @@ jobs:
             --private-key-file /tmp/rsa_key.p8
 
       - name: Build & push backend
+        working-directory: fork
         run: |
-          docker build --platform linux/amd64 \
-            -t backend_service_image_group${GROUP}:latest \
-            ./backend
-          docker tag backend_service_image_group${GROUP}:latest \
-            $REPO_URL/backend_service_image_group${GROUP}:latest
+          docker build --platform linux/amd64 -t backend_service_image_group${GROUP}:latest ./backend
+          docker tag backend_service_image_group${GROUP}:latest $REPO_URL/backend_service_image_group${GROUP}:latest
           docker push $REPO_URL/backend_service_image_group${GROUP}:latest
 
       - name: Build & push frontend
+        working-directory: fork
         run: |
-          docker build --platform linux/amd64 \
-            -t frontend_service_image_group${GROUP}:latest \
-            ./frontend
-          docker tag frontend_service_image_group${GROUP}:latest \
-            $REPO_URL/frontend_service_image_group${GROUP}:latest
+          docker build --platform linux/amd64 -t frontend_service_image_group${GROUP}:latest ./frontend
+          docker tag frontend_service_image_group${GROUP}:latest $REPO_URL/frontend_service_image_group${GROUP}:latest
           docker push $REPO_URL/frontend_service_image_group${GROUP}:latest
 
       - name: Build & push router
+        working-directory: fork
         run: |
-          docker build --platform linux/amd64 \
-            -t router_service_image_group${GROUP}:latest \
-            ./router
-          docker tag router_service_image_group${GROUP}:latest \
-            $REPO_URL/router_service_image_group${GROUP}:latest
+          docker build --platform linux/amd64 -t router_service_image_group${GROUP}:latest ./router
+          docker tag router_service_image_group${GROUP}:latest $REPO_URL/router_service_image_group${GROUP}:latest
           docker push $REPO_URL/router_service_image_group${GROUP}:latest
 
       - name: Recreate SPCS services
@@ -160,7 +158,7 @@ jobs:
           sleep 120
           for i in {1..10}; do
             snow sql --connection spcs -q "USE DATABASE $DB; USE SCHEMA $SCHEMA; SHOW ENDPOINTS IN SERVICE frontend_service_group${GROUP};" --format json > /tmp/endpoints.json || true
-            URL=$(python3 .github/scripts/get_url.py || echo "")
+            URL=$(python3 original/.github/scripts/get_url.py || echo "")
             if [ -n "$URL" ]; then
               echo "## ✅ Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
               echo "**Fork:** ${{ github.event.inputs.fork_url }}" >> $GITHUB_STEP_SUMMARY
@@ -171,6 +169,6 @@ jobs:
             echo "Still provisioning... ($i/10)"
             sleep 30
           done
-          echo "## ✅ Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** Check Snowflake — SHOW ENDPOINTS IN SERVICE frontend_service_group${GROUP};" >> $GITHUB_STEP_SUMMARY
-          echo "Service deployed but URL not ready yet — check Snowflake for the endpoint"
+          echo "## ✅ Group $GROUP deployed — check Snowflake for URL" >> $GITHUB_STEP_SUMMARY
+          echo "Service deployed but URL not ready yet."
+          echo "Run in Snowflake: SHOW ENDPOINTS IN SERVICE frontend_service_group${GROUP};"
