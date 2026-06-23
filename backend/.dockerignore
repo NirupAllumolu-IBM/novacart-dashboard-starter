@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+*.pyo
+.env
+rsa_key.p8
+rsa_key.pub
+.pytest_cache/
+*.egg-info/
+dist/
+build/
