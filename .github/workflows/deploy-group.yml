@@ -74,68 +74,81 @@ jobs:
             --authenticator SNOWFLAKE_JWT \
             --private-key-file /tmp/rsa_key.p8
 
+      - name: Generate image tag
+        id: tag
+        run: echo "ts=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
       - name: Build & push backend
         working-directory: fork
         run: |
-          docker build --no-cache --platform linux/amd64 -t backend_service_image_group${GROUP}:latest ./backend
-          docker tag backend_service_image_group${GROUP}:latest $REPO_URL/backend_service_image_group${GROUP}:latest
+          TAG=${{ steps.tag.outputs.ts }}
+          docker build --no-cache --platform linux/amd64 -t backend_service_image_group${GROUP}:${TAG} ./backend
+          docker tag backend_service_image_group${GROUP}:${TAG} $REPO_URL/backend_service_image_group${GROUP}:${TAG}
+          docker tag backend_service_image_group${GROUP}:${TAG} $REPO_URL/backend_service_image_group${GROUP}:latest
+          docker push $REPO_URL/backend_service_image_group${GROUP}:${TAG}
           docker push $REPO_URL/backend_service_image_group${GROUP}:latest
+          echo "BACKEND_TAG=${TAG}" >> $GITHUB_ENV
 
       - name: Build & push frontend
         working-directory: fork
         run: |
-          docker build --platform linux/amd64 -t frontend_service_image_group${GROUP}:latest ./frontend
-          docker tag frontend_service_image_group${GROUP}:latest $REPO_URL/frontend_service_image_group${GROUP}:latest
+          TAG=${{ steps.tag.outputs.ts }}
+          docker build --platform linux/amd64 -t frontend_service_image_group${GROUP}:${TAG} ./frontend
+          docker tag frontend_service_image_group${GROUP}:${TAG} $REPO_URL/frontend_service_image_group${GROUP}:${TAG}
+          docker tag frontend_service_image_group${GROUP}:${TAG} $REPO_URL/frontend_service_image_group${GROUP}:latest
+          docker push $REPO_URL/frontend_service_image_group${GROUP}:${TAG}
           docker push $REPO_URL/frontend_service_image_group${GROUP}:latest
 
       - name: Build & push router
         working-directory: original
         run: |
-          docker build --platform linux/amd64 -t router_service_image_group${GROUP}:latest ./router
-          docker tag router_service_image_group${GROUP}:latest $REPO_URL/router_service_image_group${GROUP}:latest
+          TAG=${{ steps.tag.outputs.ts }}
+          docker build --platform linux/amd64 -t router_service_image_group${GROUP}:${TAG} ./router
+          docker tag router_service_image_group${GROUP}:${TAG} $REPO_URL/router_service_image_group${GROUP}:${TAG}
+          docker tag router_service_image_group${GROUP}:${TAG} $REPO_URL/router_service_image_group${GROUP}:latest
+          docker push $REPO_URL/router_service_image_group${GROUP}:${TAG}
           docker push $REPO_URL/router_service_image_group${GROUP}:latest
 
       - name: Recreate SPCS service
         run: |
+          TAG=${{ steps.tag.outputs.ts }}
           snow sql --connection spcs -q "
           USE ROLE NOVACART_ADMIN_ROLE;
           USE DATABASE $DB;
           USE SCHEMA $SCHEMA;
-          DROP SERVICE IF EXISTS backend_service_group${GROUP};
-          DROP SERVICE IF EXISTS frontend_service_group${GROUP};
-          CREATE SERVICE frontend_service_group${GROUP}
+          DROP SERVICE IF EXISTS FRONTEND_SERVICE_GROUP${GROUP};
+          CREATE SERVICE FRONTEND_SERVICE_GROUP${GROUP}
             IN COMPUTE POOL NOVACART_BACKEND_POOL
             FROM SPECIFICATION \$\$
-            spec:
-              container:
-              - name: backend
-                image: $REPO_URL/backend_service_image_group${GROUP}:latest
-                env:
-                  PORT: '8000'
-                  DATA_BACKEND: snowflake
-                  CLIENT_VALIDATION: Snowflake
-                  SNOWFLAKE_ACCOUNT: VEB81086.us-east-1
-                  SNOWFLAKE_DATABASE: NOVACART_DB
-                  SNOWFLAKE_SCHEMA: APP
-                  SNOWFLAKE_WAREHOUSE: NOVACART_APP_WH
-              - name: frontend
-                image: $REPO_URL/frontend_service_image_group${GROUP}:latest
-                env:
-                  PORT: '3000'
-                  REACT_APP_BACKEND_URL: /api
-              - name: router
-                image: $REPO_URL/router_service_image_group${GROUP}:latest
-                env:
-                  FRONTEND_SERVICE: localhost:3000
-                  BACKEND_SERVICE: localhost:8000
-              endpoint:
-              - name: routerendpoint
-                port: 9000
-                public: true
+          spec:
+            containers:
+            - name: backend
+              image: $REPO_URL/backend_service_image_group${GROUP}:${TAG}
+              env:
+                PORT: '8000'
+                DATA_BACKEND: snowflake
+                CLIENT_VALIDATION: Snowflake
+                SNOWFLAKE_ACCOUNT: VEB81086.us-east-1
+                SNOWFLAKE_DATABASE: NOVACART_DB
+                SNOWFLAKE_SCHEMA: APP
+                SNOWFLAKE_WAREHOUSE: NOVACART_APP_WH
+            - name: frontend
+              image: $REPO_URL/frontend_service_image_group${GROUP}:${TAG}
+              env:
+                PORT: '3000'
+                REACT_APP_BACKEND_URL: /api
+            - name: router
+              image: $REPO_URL/router_service_image_group${GROUP}:${TAG}
+              env:
+                FRONTEND_SERVICE: localhost:3000
+                BACKEND_SERVICE: localhost:8000
+            endpoints:
+            - name: routerendpoint
+              port: 9000
+              public: true
             \$\$
             MIN_INSTANCES=1 MAX_INSTANCES=1;
-          GRANT USAGE ON SERVICE frontend_service_group${GROUP} TO ROLE $EXT_ROLE;
-          GRANT SERVICE ROLE frontend_service_group${GROUP}!ALL_ENDPOINTS_USAGE TO ROLE $EXT_ROLE;
+          GRANT SERVICE ROLE FRONTEND_SERVICE_GROUP${GROUP}!ALL_ENDPOINTS_USAGE TO ROLE $EXT_ROLE;
           "
 
       - name: Wait and get URL
@@ -143,7 +156,7 @@ jobs:
           echo "Waiting for service to be ready..."
           sleep 120
           for i in {1..10}; do
-            snow sql --connection spcs -q "USE DATABASE $DB; USE SCHEMA $SCHEMA; SHOW ENDPOINTS IN SERVICE frontend_service_group${GROUP};" --format json > /tmp/endpoints.json || true
+            snow sql --connection spcs -q "USE DATABASE $DB; USE SCHEMA $SCHEMA; SHOW ENDPOINTS IN SERVICE FRONTEND_SERVICE_GROUP${GROUP};" --format json > /tmp/endpoints.json || true
             URL=$(python3 original/.github/scripts/get_url.py || echo "")
             if [ -n "$URL" ]; then
               echo "## Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
