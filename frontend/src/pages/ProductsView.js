@@ -79,9 +79,62 @@ export default function ProductsView() {
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16 }}>Top 10 Products by Revenue</div>
               {/* TODO: add your bar chart here */}
-              <div className="loading" style={{ height: 300 }}>
-                Implement the products bar chart
-              </div>
+              // <div className="loading" style={{ height: 300 }}>
+              //   Implement the products bar chart
+              // </div>
+         <ResponsiveContainer width="100%" height={340}>
+  <BarChart
+    data={[...products]
+      .sort((a, b) => b.revenue - a.revenue)
+      .slice(0, 10)}
+    layout="vertical"
+    margin={{ left: 80, right: 40, top: 20, bottom: 20 }}
+  >
+    <defs>
+      <linearGradient id="revenueGradient" x1="0" y1="0" x2="1" y2="0">
+        <stop offset="0%" stopColor="var(--blue)" stopOpacity={0.4} />
+        <stop offset="100%" stopColor="var(--blue)" stopOpacity={1} />
+      </linearGradient>
+    </defs>
+    <YAxis
+      type="category"
+      dataKey="name"
+      width={160}
+      tickFormatter={value =>
+        value.length > 22 ? value.substring(0, 22) + '…' : value
+      }
+      tick={{ fontSize: 13 }}
+    />
+    <XAxis
+      type="number"
+      tick={{ fontSize: 12 }}
+      tickFormatter={value => formatCurrency(value)}
+    />
+    <Tooltip
+      formatter={(value, key) => [
+        formatCurrency(value),
+        key === "revenue" ? "Revenue" : key
+      ]}
+      contentStyle={{
+        background: 'var(--card)',
+        border: '1px solid var(--border)',
+        borderRadius: 8,
+        fontSize: 13
+      }}
+    />
+    <Bar
+      dataKey="revenue"
+      fill="url(#revenueGradient)"
+      radius={[6, 6, 6, 6]}
+      label={{
+        position: 'right',
+        formatter: value => formatCurrency(value),
+        fill: 'var(--text-primary)',
+        fontSize: 12
+      }}
+    />
+  </BarChart>
+</ResponsiveContainer>
             </div>
 
             {/*
@@ -92,10 +145,32 @@ export default function ProductsView() {
             */}
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16 }}>Product Details</div>
-              {/* TODO: add your table here */}
-              <div className="loading" style={{ height: 300 }}>
-                Implement the products table
-              </div>
+              // {/* TODO: add your table here */}
+              // <div className="loading" style={{ height: 300 }}>
+              //   Implement the products table
+              // </div>
+              <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
+  <thead>
+    <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
+      <th style={{ padding: '8px 4px' }}>Product Name</th>
+      <th style={{ padding: '8px 4px' }}>Category</th>
+      <th style={{ padding: '8px 4px' }}>Units Sold</th>
+      <th style={{ padding: '8px 4px' }}>Revenue</th>
+    </tr>
+  </thead>
+  <tbody>
+    {products.map((p) => (
+      <tr key={p.product_id} style={{ borderBottom: '1px solid var(--border)' }}>
+        <td style={{ padding: '8px 4px', fontWeight: 600 }}>{p.name}</td>
+        <td style={{ padding: '8px 4px' }}>{p.category}</td> 
+        <td style={{ padding: '8px 4px' }}>{p.units_sold}</td>
+        <td style={{ padding: '8px 4px', fontWeight: 600 }}>
+          {formatCurrency(p.revenue)}
+        </td>
+      </tr>
+    ))}
+  </tbody>
+</table>    
             </div>
 
           </div>
