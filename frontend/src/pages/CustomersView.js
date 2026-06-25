@@ -35,13 +35,7 @@ export default function CustomersView() {
     setError(null);
     try {
       const data = await getCustomers(startDate, endDate);
-      const normalized = data.map((customer) => ({
-        ...customer,
-        city: customer.city ?? customer.addr_city ?? '',
-        state: customer.state ?? customer.addr_state ?? '',
-        customer_name: customer.customer_name ?? customer.name ?? '',
-      }));
-      setCustomers(normalized);
+      setCustomers(data);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -116,39 +110,12 @@ export default function CustomersView() {
               Format total_spent with formatCurrency().
             */}
 
-            <div className="table-container">
-              <table className="data-table">
-                <thead>
-                  <tr>
-                    <th onClick={() => handleSort('name')}>
-                      Name{sortIcon('name')}
-                    </th>
-                    <th onClick={() => handleSort('city')}>
-                      City{sortIcon('city')}
-                    </th>
-                    <th onClick={() => handleSort('state')}>
-                      State{sortIcon('state')}
-                    </th>
-                    <th onClick={() => handleSort('total_orders')}>
-                      Orders{sortIcon('total_orders')}
-                    </th>
-                    <th onClick={() => handleSort('total_spent')}>
-                      Total Spent{sortIcon('total_spent')}
-                    </th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {sorted.map((customer) => (
-                    <tr key={customer.customer_id}>
-                      <td>{customer.customer_name}</td>
-                      <td>{customer.city}</td>
-                      <td>{customer.state}</td>
-                      <td>{customer.total_orders?.toLocaleString() ?? '0'}</td>
-                      <td>{formatCurrency(customer.total_spent)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+            {/* TODO: add your sortable table here */}
+            <div className="loading" style={{ height: 400 }}>
+              Implement the sortable customers table.
+              Data available in: sorted (array of customer objects)
+              Sorting state: sortBy="{sortBy}", sortDir="{sortDir}"
+              Use handleSort(column) to handle header clicks.
             </div>
 
           </div>

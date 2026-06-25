@@ -82,36 +82,4 @@ body {
 }
 .btn-apply:hover { opacity: 0.85; }
 
-.table-container { overflow-x: auto; }
-.data-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 680px;
-}
-.data-table th,
-.data-table td {
-  text-align: left;
-  padding: 14px 16px;
-  border-bottom: 1px solid var(--border);
-  font-size: 14px;
-}
-.data-table th {
-  position: relative;
-  cursor: pointer;
-  color: var(--text-secondary);
-  user-select: none;
-}
-.data-table th:hover {
-  color: var(--text-primary);
-}
-.data-table tbody tr:nth-child(even) {
-  background: rgba(0, 0, 0, 0.02);
-}
-.data-table tbody tr:hover {
-  background: rgba(0, 0, 0, 0.04);
-}
-.data-table td {
-  color: var(--text-primary);
-}
-
 .loading { display: flex; align-items: center; justify-content: center; height: 200px; color: var(--text-muted); font-size: 14px; }

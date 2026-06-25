@@ -8,7 +8,7 @@ on:
         required: true
         type: string
       fork_url:
-        description: 'Intern fork URL (e.g. https://github.com/intern-name/novacart-dashboard-starter or intern-name/novacart-dashboard-starter)'
+        description: 'Intern fork URL (e.g. https://github.com/intern-name/novacart-dashboard-starter)'
         required: true
         type: string
 
@@ -21,13 +21,14 @@ jobs:
       GROUP: ${{ github.event.inputs.group_number }}
       DB: NOVACART_DB
       SCHEMA: APP
-      BACKEND_POOL: NOVACART_BACKEND_POOL
-      FRONTEND_POOL: NOVACART_FRONTEND_POOL
-      ADMIN_ROLE: NOVACART_ADMIN_ROLE
       EXT_ROLE: NOVACART_EXT_ROLE
-      APP_WH: NOVACART_APP_WH
 
     steps:
+      - name: Checkout original repo (for scripts and router)
+        uses: actions/checkout@v4
+        with:
+          path: original
+
       - name: Parse fork URL
         id: parse
         run: |
@@ -41,6 +42,7 @@ jobs:
         with:
           repository: ${{ steps.parse.outputs.repo }}
           ref: main
+          path: fork
 
       - name: Install Snowflake CLI
         run: pip install snowflake-cli-labs --quiet
@@ -72,91 +74,98 @@ jobs:
             --authenticator SNOWFLAKE_JWT \
             --private-key-file /tmp/rsa_key.p8
 
+      - name: Generate image tag
+        id: tag
+        run: echo "ts=$(date +%Y%m%d%H%M%S)" >> $GITHUB_OUTPUT
+
       - name: Build & push backend
+        working-directory: fork
         run: |
-          docker build --platform linux/amd64 \
-            -t backend_service_image_group${GROUP}:latest \
-            ./backend
-          docker tag backend_service_image_group${GROUP}:latest \
-            $REPO_URL/backend_service_image_group${GROUP}:latest
+          TAG=${{ steps.tag.outputs.ts }}
+          docker build --no-cache --platform linux/amd64 -t backend_service_image_group${GROUP}:${TAG} ./backend
+          docker tag backend_service_image_group${GROUP}:${TAG} $REPO_URL/backend_service_image_group${GROUP}:${TAG}
+          docker tag backend_service_image_group${GROUP}:${TAG} $REPO_URL/backend_service_image_group${GROUP}:latest
+          docker push $REPO_URL/backend_service_image_group${GROUP}:${TAG}
           docker push $REPO_URL/backend_service_image_group${GROUP}:latest
+          echo "BACKEND_TAG=${TAG}" >> $GITHUB_ENV
 
       - name: Build & push frontend
+        working-directory: fork
         run: |
-          docker build --platform linux/amd64 \
-            -t frontend_service_image_group${GROUP}:latest \
-            ./frontend
-          docker tag frontend_service_image_group${GROUP}:latest \
-            $REPO_URL/frontend_service_image_group${GROUP}:latest
+          TAG=${{ steps.tag.outputs.ts }}
+          docker build --platform linux/amd64 -t frontend_service_image_group${GROUP}:${TAG} ./frontend
+          docker tag frontend_service_image_group${GROUP}:${TAG} $REPO_URL/frontend_service_image_group${GROUP}:${TAG}
+          docker tag frontend_service_image_group${GROUP}:${TAG} $REPO_URL/frontend_service_image_group${GROUP}:latest
+          docker push $REPO_URL/frontend_service_image_group${GROUP}:${TAG}
           docker push $REPO_URL/frontend_service_image_group${GROUP}:latest
 
       - name: Build & push router
+        working-directory: original
         run: |
-          docker build --platform linux/amd64 \
-            -t router_service_image_group${GROUP}:latest \
-            ./router
-          docker tag router_service_image_group${GROUP}:latest \
-            $REPO_URL/router_service_image_group${GROUP}:latest
+          TAG=${{ steps.tag.outputs.ts }}
+          docker build --platform linux/amd64 -t router_service_image_group${GROUP}:${TAG} ./router
+          docker tag router_service_image_group${GROUP}:${TAG} $REPO_URL/router_service_image_group${GROUP}:${TAG}
+          docker tag router_service_image_group${GROUP}:${TAG} $REPO_URL/router_service_image_group${GROUP}:latest
+          docker push $REPO_URL/router_service_image_group${GROUP}:${TAG}
           docker push $REPO_URL/router_service_image_group${GROUP}:latest
 
-      - name: Recreate SPCS services
+      - name: Recreate SPCS service
         run: |
+          TAG=${{ steps.tag.outputs.ts }}
           snow sql --connection spcs -q "
           USE ROLE NOVACART_ADMIN_ROLE;
           USE DATABASE $DB;
           USE SCHEMA $SCHEMA;
-          DROP SERVICE IF EXISTS backend_service_group${GROUP};
-          DROP SERVICE IF EXISTS frontend_service_group${GROUP};
-          CREATE SERVICE backend_service_group${GROUP}
-            IN COMPUTE POOL $BACKEND_POOL
+          DROP SERVICE IF EXISTS FRONTEND_SERVICE_GROUP${GROUP};
+          CREATE SERVICE FRONTEND_SERVICE_GROUP${GROUP}
+            IN COMPUTE POOL NOVACART_BACKEND_POOL
             FROM SPECIFICATION \$\$
-            spec:
-              container:
-              - name: backend
-                image: $REPO_URL/backend_service_image_group${GROUP}:latest
-                env:
-                  PORT: '8000'
-                  SNOWFLAKE_WAREHOUSE: $APP_WH
-              endpoint:
-              - name: backendendpoint
-                port: 8000
-                public: false
+          spec:
+            containers:
+            - name: backend
+              image: $REPO_URL/backend_service_image_group${GROUP}:${TAG}
+              env:
+                PORT: '8000'
+                DATA_BACKEND: snowflake
+                CLIENT_VALIDATION: Snowflake
+                SNOWFLAKE_ACCOUNT: VEB81086.us-east-1
+                SNOWFLAKE_DATABASE: NOVACART_DB
+                SNOWFLAKE_SCHEMA: APP
+                SNOWFLAKE_WAREHOUSE: NOVACART_APP_WH
+            - name: frontend
+              image: $REPO_URL/frontend_service_image_group${GROUP}:${TAG}
+              env:
+                PORT: '3000'
+                REACT_APP_BACKEND_URL: /api
+            - name: router
+              image: $REPO_URL/router_service_image_group${GROUP}:${TAG}
+              env:
+                FRONTEND_SERVICE: localhost:3000
+                BACKEND_SERVICE: localhost:8000
+            endpoints:
+            - name: routerendpoint
+              port: 9000
+              public: true
             \$\$
             MIN_INSTANCES=1 MAX_INSTANCES=1;
-          CREATE SERVICE frontend_service_group${GROUP}
-            IN COMPUTE POOL $FRONTEND_POOL
-            FROM SPECIFICATION \$\$
-            spec:
-              container:
-              - name: frontend
-                image: $REPO_URL/frontend_service_image_group${GROUP}:latest
-                env:
-                  PORT: '3000'
-                  REACT_APP_BACKEND_URL: /api
-              - name: router
-                image: $REPO_URL/router_service_image_group${GROUP}:latest
-                env:
-                  FRONTEND_SERVICE: localhost:3000
-                  BACKEND_SERVICE: backend-service-group${GROUP}:8000
-              endpoint:
-              - name: routerendpoint
-                port: 8000
-                public: true
-            \$\$
-            MIN_INSTANCES=1 MAX_INSTANCES=1;
-          GRANT USAGE ON SERVICE backend_service_group${GROUP}  TO ROLE $EXT_ROLE;
-          GRANT USAGE ON SERVICE frontend_service_group${GROUP} TO ROLE $EXT_ROLE;
-          GRANT SERVICE ROLE backend_service_group${GROUP}!ALL_ENDPOINTS_USAGE  TO ROLE $EXT_ROLE;
-          GRANT SERVICE ROLE frontend_service_group${GROUP}!ALL_ENDPOINTS_USAGE TO ROLE $EXT_ROLE;
+          GRANT SERVICE ROLE FRONTEND_SERVICE_GROUP${GROUP}!ALL_ENDPOINTS_USAGE TO ROLE $EXT_ROLE;
           "
 
       - name: Wait and get URL
         run: |
-          echo "Waiting for service to start..."
-          sleep 90
-          snow sql --connection spcs -q "USE DATABASE $DB; USE SCHEMA $SCHEMA; SHOW ENDPOINTS IN SERVICE frontend_service_group${GROUP};" --format json > /tmp/endpoints.json 2>/dev/null || true
-          URL=$(python3 .github/scripts/get_url.py || echo "")
-          echo "## ✅ Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
-          echo "**Fork:** ${{ github.event.inputs.fork_url }}" >> $GITHUB_STEP_SUMMARY
-          echo "**URL:** https://$URL" >> $GITHUB_STEP_SUMMARY
-          echo "Group $GROUP app URL: https://$URL"
+          echo "Waiting for service to be ready..."
+          sleep 120
+          for i in {1..10}; do
+            snow sql --connection spcs -q "USE DATABASE $DB; USE SCHEMA $SCHEMA; SHOW ENDPOINTS IN SERVICE FRONTEND_SERVICE_GROUP${GROUP};" --format json > /tmp/endpoints.json || true
+            URL=$(python3 original/.github/scripts/get_url.py || echo "")
+            if [ -n "$URL" ]; then
+              echo "## Group $GROUP deployed" >> $GITHUB_STEP_SUMMARY
+              echo "**Fork:** ${{ github.event.inputs.fork_url }}" >> $GITHUB_STEP_SUMMARY
+              echo "**URL:** https://$URL" >> $GITHUB_STEP_SUMMARY
+              echo "Group $GROUP app URL: https://$URL"
+              exit 0
+            fi
+            echo "Still provisioning... ($i/10)"
+            sleep 30
+          done
+          echo "Service deployed - check Snowflake for URL"
