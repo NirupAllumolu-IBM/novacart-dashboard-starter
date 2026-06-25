@@ -278,7 +278,11 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
       - ORDER BY revenue DESC, LIMIT 10
     """
     conn = get_connection()
-    query = """
+
+    # Snowflake expects %s placeholders; SQLite uses ?
+    ph = "%s" if os.getenv("DATA_BACKEND", "sqlite") == "snowflake" else "?"
+
+    query = f"""
         SELECT
             p.product_id,
             p.name,
@@ -288,7 +292,7 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
         FROM fact_orders o
         JOIN dim_product p
             ON o.product_id = p.product_id
-        WHERE o.order_date BETWEEN ? AND ?
+        WHERE o.order_date BETWEEN {ph} AND {ph}
           AND o.status IN ('delivered', 'shipped')
         GROUP BY
             p.product_id,
@@ -298,19 +302,16 @@ def get_products(start: str = "2022-01-01", end: str = "2022-12-31"):
         LIMIT 10
     """
     results = execute_query(conn, query, (start, end))
-    response = []
-    for row in results:
-        response.append({
+    return [
+        {
             "product_id": row["product_id"],
-            "name": row["name"],
-            "category": row["category"],
+            "name":       row["name"],
+            "category":   row["category"],
             "units_sold": row["units_sold"] or 0,
-            "revenue": round(row["revenue"] or 0, 2)
-        })
-    return response
-
-    # ── YOUR CODE HERE ────────────────────────────────────────────────────────
-    raise HTTPException(status_code=501, detail="Not implemented yet — your turn!")
+            "revenue":    round(row["revenue"] or 0, 2),
+        }
+        for row in results
+    ]
 
 
 @app.get("/franchise/customers", tags=["Franchise"])
