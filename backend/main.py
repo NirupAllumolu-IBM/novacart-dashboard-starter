@@ -24,6 +24,7 @@ The connection and query helpers are already set up in connection.py.
 
 import os
 import time
+from typing import Optional
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -374,8 +375,8 @@ def get_customers(start: str = "2022-01-01", end: str = "2022-12-31"):
 
 @app.get("/franchise/cities/search", tags=["Franchise"])
 def get_cities_search(
-    city: str = None,
-    state: str = None,
+    city: Optional[str] = None,
+    state: Optional[str] = None,
     start: str = "2022-01-01",
     end: str = "2022-12-31"
 ):
@@ -393,7 +394,24 @@ def get_cities_search(
     - end: end date (default: 2022-12-31)
     """
     conn = get_connection()
-    results = execute_query(conn, """
+
+    # Snowflake uses %s positional params; SQLite uses ?
+    ph = "%s" if os.getenv("DATA_BACKEND", "sqlite") == "snowflake" else "?"
+
+    # Build optional filters dynamically to avoid backend-specific NULL handling
+    filters = []
+    params: list = [start, end]
+
+    if city:
+        filters.append(f"LOWER(c.addr_city) = LOWER({ph})")
+        params.append(city)
+    if state:
+        filters.append(f"LOWER(c.addr_state) = LOWER({ph})")
+        params.append(state)
+
+    where_extra = ("AND " + " AND ".join(filters)) if filters else ""
+
+    query = f"""
         SELECT
             c.addr_city                 AS city,
             c.addr_state                AS state,
@@ -404,12 +422,12 @@ def get_cities_search(
             ON o.customer_id = c.customer_id
             AND c.is_current = 1
         WHERE o.status IN ('delivered', 'shipped')
-        AND o.order_date BETWEEN :start AND :end
-        AND (:city IS NULL OR LOWER(c.addr_city) = LOWER(:city))
-        AND (:state IS NULL OR LOWER(c.addr_state) = LOWER(:state))
+        AND o.order_date BETWEEN {ph} AND {ph}
+        {where_extra}
         GROUP BY c.addr_city, c.addr_state
         ORDER BY revenue DESC
-    """, {"city": city, "state": state, "start": start, "end": end})
+    """
+    results = execute_query(conn, query, tuple(params))
     if not results:
         raise HTTPException(status_code=404, detail="No data found for the given city/state.")
     return [
