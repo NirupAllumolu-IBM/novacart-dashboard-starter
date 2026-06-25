@@ -211,23 +211,36 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     # ── Query execution ───────────────────────────────────────────────────
     conn = get_connection()
     
+    # Determine database backend for SQL syntax compatibility
+    backend = os.getenv("DATA_BACKEND", "sqlite").lower()
+    
+    # Use appropriate date formatting and placeholder syntax
+    if backend == "snowflake":
+        date_format = "TO_CHAR(d.full_date, 'YYYY-MM')"
+        placeholder = "%s"
+    else:  # sqlite
+        date_format = "strftime('%Y-%m', d.full_date)"
+        placeholder = "?"
+    
+    query = f"""
+        SELECT
+            {date_format} AS month,
+            d.month_name,
+            COUNT(DISTINCT f.order_id) AS order_count,
+            ROUND(SUM(CASE
+                WHEN f.status IN ('delivered', 'shipped')
+                THEN f.amount
+                ELSE 0
+            END), 2) AS revenue
+        FROM fact_orders f
+        JOIN dim_date d ON f.date_key = d.date_key
+        WHERE f.order_date BETWEEN {placeholder} AND {placeholder}
+        GROUP BY d.year, d.month, d.month_name
+        ORDER BY d.year, d.month
+    """
+    
     try:
-        results = execute_query(conn, """
-            SELECT
-                strftime('%Y-%m', d.full_date) AS month,
-                d.month_name,
-                COUNT(DISTINCT f.order_id) AS order_count,
-                ROUND(SUM(CASE
-                    WHEN f.status IN ('delivered', 'shipped')
-                    THEN f.amount
-                    ELSE 0
-                END), 2) AS revenue
-            FROM fact_orders f
-            JOIN dim_date d ON f.date_key = d.date_key
-            WHERE f.order_date BETWEEN ? AND ?
-            GROUP BY d.year, d.month, d.month_name
-            ORDER BY d.year, d.month
-        """, (start, end))
+        results = execute_query(conn, query, (start, end))
         
         # Format response to match expected structure
         return [
