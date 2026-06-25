@@ -110,35 +110,128 @@ export default function CustomersView() {
               Format total_spent with formatCurrency().
             */}
 
-            <div className="table-container">
-              <table className="data-table">
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{
+                width: '100%',
+                borderCollapse: 'collapse',
+                fontSize: '14px'
+              }}>
                 <thead>
-                  <tr>
-                    <th onClick={() => handleSort('customer_name')}>
+                  <tr style={{
+                    background: 'var(--bg-primary)',
+                    borderBottom: '2px solid var(--border)'
+                  }}>
+                    <th onClick={() => handleSort('customer_name')} style={{
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       Name{sortIcon('customer_name')}
                     </th>
-                    <th onClick={() => handleSort('city')}>
+                    <th onClick={() => handleSort('city')} style={{
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       City{sortIcon('city')}
                     </th>
-                    <th onClick={() => handleSort('state')}>
+                    <th onClick={() => handleSort('state')} style={{
+                      padding: '12px 16px',
+                      textAlign: 'left',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       State{sortIcon('state')}
                     </th>
-                    <th onClick={() => handleSort('total_orders')}>
+                    <th onClick={() => handleSort('total_orders')} style={{
+                      padding: '12px 16px',
+                      textAlign: 'right',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       Orders{sortIcon('total_orders')}
                     </th>
-                    <th onClick={() => handleSort('total_spent')}>
+                    <th onClick={() => handleSort('total_spent')} style={{
+                      padding: '12px 16px',
+                      textAlign: 'right',
+                      fontWeight: 600,
+                      color: 'var(--text-secondary)',
+                      cursor: 'pointer',
+                      userSelect: 'none',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                    onMouseLeave={e => e.currentTarget.style.background = 'transparent'}>
                       Total Spent{sortIcon('total_spent')}
                     </th>
                   </tr>
                 </thead>
                 <tbody>
-                  {sorted.map((customer) => (
-                    <tr key={customer.customer_id}>
-                      <td>{customer.customer_name}</td>
-                      <td>{customer.city}</td>
-                      <td>{customer.state}</td>
-                      <td>{customer.total_orders?.toLocaleString() ?? '0'}</td>
-                      <td>{formatCurrency(customer.total_spent)}</td>
+                  {sorted.map((customer, idx) => (
+                    <tr key={customer.customer_id} style={{
+                      borderBottom: '1px solid var(--border)',
+                      background: idx % 2 === 0 ? 'transparent' : 'var(--bg-primary)',
+                      transition: 'background 0.2s'
+                    }}
+                    onMouseEnter={e => e.currentTarget.style.background = 'var(--border)'}
+                    onMouseLeave={e => e.currentTarget.style.background = idx % 2 === 0 ? 'transparent' : 'var(--bg-primary)'}>
+                      <td style={{
+                        padding: '12px 16px',
+                        color: 'var(--text-primary)',
+                        fontWeight: 500
+                      }}>
+                        {customer.customer_name}
+                      </td>
+                      <td style={{
+                        padding: '12px 16px',
+                        color: 'var(--text-secondary)'
+                      }}>
+                        {customer.city}
+                      </td>
+                      <td style={{
+                        padding: '12px 16px',
+                        color: 'var(--text-secondary)'
+                      }}>
+                        {customer.state}
+                      </td>
+                      <td style={{
+                        padding: '12px 16px',
+                        textAlign: 'right',
+                        color: 'var(--text-primary)',
+                        fontWeight: 500
+                      }}>
+                        {customer.total_orders?.toLocaleString() ?? '0'}
+                      </td>
+                      <td style={{
+                        padding: '12px 16px',
+                        textAlign: 'right',
+                        color: 'var(--accent)',
+                        fontWeight: 600
+                      }}>
+                        {formatCurrency(customer.total_spent)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
