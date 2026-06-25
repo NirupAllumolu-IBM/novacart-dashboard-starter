@@ -79,10 +79,10 @@ export default function ProductsView() {
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16 }}>Top 10 Products by Revenue</div>
               {/* TODO: add your bar chart here */}
-              // <div className="loading" style={{ height: 300 }}>
-              //   Implement the products bar chart
-              // </div>
-         <ResponsiveContainer width="100%" height={340}>
+              {/* <div className="loading" style={{ height: 300 }}>
+                Implement the products bar chart
+              </div> */}
+<ResponsiveContainer width="100%" height={340}>
   <BarChart
     data={[...products]
       .sort((a, b) => b.revenue - a.revenue)
@@ -135,6 +135,7 @@ export default function ProductsView() {
     />
   </BarChart>
 </ResponsiveContainer>
+
             </div>
 
             {/*
@@ -145,11 +146,12 @@ export default function ProductsView() {
             */}
             <div className="card">
               <div className="section-title" style={{ marginBottom: 16 }}>Product Details</div>
-              // {/* TODO: add your table here */}
-              // <div className="loading" style={{ height: 300 }}>
-              //   Implement the products table
-              // </div>
-              <table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
+              {/* TODO: add your table here */}
+              {/* <div className="loading" style={{ height: 300 }}>
+                Implement the products table
+              </div> */}
+      
+<table style={{ width: '100%', fontSize: 14, borderCollapse: 'collapse' }}>
   <thead>
     <tr style={{ textAlign: 'left', borderBottom: '1px solid var(--border)' }}>
       <th style={{ padding: '8px 4px' }}>Product Name</th>
@@ -170,8 +172,8 @@ export default function ProductsView() {
       </tr>
     ))}
   </tbody>
-</table>    
-            </div>
+</table>            
+</div>
 
           </div>
         )}
