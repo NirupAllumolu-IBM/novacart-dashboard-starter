@@ -217,7 +217,8 @@ def get_orders(start: str = "2022-01-01", end: str = "2022-12-31"):
     
     # Use appropriate date formatting and placeholder syntax
     if backend == "snowflake":
-        date_format = "TO_CHAR(d.full_date, 'YYYY-MM')"
+        # Snowflake uses TO_VARCHAR with date format or DATE_TRUNC
+        date_format = "TO_VARCHAR(d.full_date, 'YYYY-MM')"
         placeholder = "%s"
     else:  # sqlite
         date_format = "strftime('%Y-%m', d.full_date)"
