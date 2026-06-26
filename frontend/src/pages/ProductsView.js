@@ -163,7 +163,6 @@ export default function ProductsView() {
       <tr key={p.product_id} style={{ borderBottom: '1px solid var(--border)' }}>
         <td style={{ padding: '8px 4px', fontWeight: 600 }}>{p.name}</td>
         <td style={{ padding: '8px 4px' }}>{p.category}</td>
-        <td style={{ padding: '8px 4px' }}>{p.category}</td>
         <td style={{ padding: '8px 4px' }}>{p.units_sold}</td>
         <td style={{ padding: '8px 4px', fontWeight: 600 }}>
           {formatCurrency(p.revenue)}
